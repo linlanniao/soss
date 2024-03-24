@@ -1,0 +1,3 @@
+client_type: oss
+bucket: ppops-bucket
+endpoint: https://oss-cn-guangzhou.aliyuncs.com
