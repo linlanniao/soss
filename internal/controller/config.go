@@ -3,7 +3,6 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -22,14 +21,14 @@ const (
 	environmentKeyOssSk = "OSS_ACCESS_KEY_SECRET"
 )
 
-func (c *Controller) LoadConfig(file string) error {
-	b, err := os.ReadFile(file)
+func NewConfig(configFile string) *Config {
+	b, err := os.ReadFile(configFile)
 	if err != nil {
-		return err
+		panic(err.Error())
 	}
 	config := Config{}
 	if err := yaml.Unmarshal(b, &config); err != nil {
-		return err
+		panic(err.Error())
 	}
 	switch config.ClientType {
 	case "oss":
@@ -37,15 +36,12 @@ func (c *Controller) LoadConfig(file string) error {
 		config.SecretKey = os.Getenv(environmentKeyOssSk)
 		if config.AccessKey == "" || config.SecretKey == "" {
 			err := fmt.Errorf("environment key [%s] or [%s] is not set", environmentKeyOssSk, environmentKeyOssSk)
-			slog.Error(err.Error())
-			return err
+			panic(err.Error())
 		}
 	default:
-		err := errors.New("unsupported client type")
-		slog.Error(err.Error())
+		err := errors.New("unsupported s3Client type")
 		panic(err.Error())
 	}
 
-	c.config = &config
-	return nil
+	return &config
 }
