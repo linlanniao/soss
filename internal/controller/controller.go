@@ -140,6 +140,10 @@ func (c *Controller) Upload(opts UploadOptions) error {
 			return err
 		}
 		//c.logger.Info(fmt.Sprintf("uploading %s to %s", file, ossFileKey))
+
+		if !filepath.IsAbs(file.Path) {
+			file.Path = "./" + file.Path
+		}
 		c.logger.Info("uploading",
 			"from", file.Path,
 			"to", obj.Bucket+":"+obj.Key,
@@ -169,8 +173,8 @@ func (c *Controller) Upload(opts UploadOptions) error {
 				// TODO: what to deal with the prefix?
 				//  1. filepath.Join ?
 				//  2. prefix + filepath.Dir ?
-				//subPrefix := filepath.Join(prefix, filepath.Dir(f))
-				subPrefix := opts.Prefix + filepath.Dir(f)
+				subPrefix := filepath.Join(opts.Prefix, filepath.Dir(f))
+				//subPrefix := opts.Prefix + filepath.Dir(f)
 				if err := do(opts.Bucket, subPrefix, f); err != nil {
 					return err
 				}
@@ -232,7 +236,7 @@ func (c *Controller) Download(opts DownloadOptions) error {
 			outputDir,
 		)
 		if err != nil {
-			c.logger.Error("download failed", "err", err.Error())
+			c.logger.Error("download failed", "key", s3key, "err", err.Error())
 			return err
 		}
 
@@ -246,6 +250,11 @@ func (c *Controller) Download(opts DownloadOptions) error {
 			c.logger.Error("download failed", "err", err.Error())
 			return err
 		}
+
+		if !filepath.IsAbs(file.Path) {
+			file.Path = "./" + file.Path
+		}
+
 		c.logger.Info("downloading",
 			"from", bucket+":"+s3key,
 			"saveTo", file.Path,

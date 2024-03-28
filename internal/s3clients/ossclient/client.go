@@ -107,8 +107,8 @@ func (c *client) Upload(bucket string, prefix string, file *internal.File) (obj 
 	// TODO: what to deal with the prefix?
 	//  1. filepath.Join ?
 	//  2. prefix + filepath.Dir ?
-	//key := filepath.Join(prefix, fileName)
-	key := prefix + fileName
+	key := filepath.Join(prefix, fileName)
+	//key := prefix + fileName
 	reader := bytes.NewReader(file.Content)
 	err = b.PutObject(key, reader, oss.Prefix(prefix))
 	if err != nil {
@@ -161,10 +161,11 @@ func (c *client) Download(obj *internal.S3Object, outputDir string) (file *inter
 		return nil, err
 	}
 
-	absDir, _ := filepath.Abs(filepath.Join(outputDir, obj.Key))
+	outputPath := filepath.Join(outputDir, obj.Key)
+	//absPath, _ := filepath.Abs(filepath.Join(outputDir, obj.Key))
 
 	return &internal.File{
-		Path:      absDir,
+		Path:      outputPath,
 		Content:   content,
 		Encrypted: true, // 默认已加密
 	}, nil
