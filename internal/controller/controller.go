@@ -79,7 +79,6 @@ func (c *Controller) List(opts ListOptions) error {
 		//c.logger.Info(obj.Key)
 		fmt.Println(obj.Key)
 	}
-
 	return nil
 }
 
@@ -141,9 +140,9 @@ func (c *Controller) Upload(opts UploadOptions) error {
 		}
 		//c.logger.Info(fmt.Sprintf("uploading %s to %s", file, ossFileKey))
 
-		if !filepath.IsAbs(file.Path) {
-			file.Path = "./" + file.Path
-		}
+		//if !filepath.IsAbs(file.Path) {
+		//	file.Path = "./" + file.Path
+		//}
 		c.logger.Info("uploading",
 			"from", file.Path,
 			"to", obj.Bucket+":"+obj.Key,
@@ -242,18 +241,18 @@ func (c *Controller) Download(opts DownloadOptions) error {
 
 		// decrypt file content
 		if err := c.fileHandler.Decrypt(file, opts.DecryptKey); err != nil {
-			c.logger.Error("download failed", "err", err.Error())
+			c.logger.Error("decrypt file failed", "err", err.Error())
 			return err
 		}
 
 		if err := c.fileHandler.Write(file); err != nil {
-			c.logger.Error("download failed", "err", err.Error())
+			c.logger.Error("decrypt file failed", "err", err.Error())
 			return err
 		}
 
-		if !filepath.IsAbs(file.Path) {
-			file.Path = "./" + file.Path
-		}
+		//if !filepath.IsAbs(file.Path) {
+		//	file.Path = "./" + file.Path
+		//}
 
 		c.logger.Info("downloading",
 			"from", bucket+":"+s3key,

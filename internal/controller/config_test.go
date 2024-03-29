@@ -8,7 +8,8 @@ import (
 
 func TestController_LoadConfig(t *testing.T) {
 	f := "../../config.yaml"
-	cfg := NewConfig(f)
+	cfg, err := NewConfigFromFile(f)
+	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 	assert.NotEmpty(t, cfg.AccessKey)
 	assert.NotEmpty(t, cfg.SecretKey)

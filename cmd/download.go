@@ -1,39 +1,41 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
-	"fmt"
+	"os"
 
+	"github.com/linlanniao/soss/internal/controller"
+	"github.com/linlanniao/soss/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
-// downloadCmd represents the download command
-var downloadCmd = &cobra.Command{
-	Use:   "download",
-	Short: "download a file from s3Server and decrypt it",
-	Long: `A longer description that spans multiple lines and likely contains examples
-	and usage of using your command. For example:
-	
-	Cobra is a CLI library for Go that empowers applications.
-	This application is a tool to generate the needed files
-	to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("download called")
-	},
-}
+var (
+	downloadDecryptKey string
+	downloadOutputDir  string
+
+	// downloadCmd represents the download command
+	downloadCmd = &cobra.Command{
+		Use:   "download files [files ...]",
+		Short: "Download files from s3Service and decrypt it",
+		Run: func(cmd *cobra.Command, keys []string) {
+			opts := controller.DownloadOptions{
+				Endpoint:   endpoint,
+				Bucket:     bucket,
+				OutputDir:  downloadOutputDir,
+				DecryptKey: downloadDecryptKey,
+				S3keys:     utils.RemoveDuplicates(keys),
+			}
+
+			if err := ctrl.Download(opts); err != nil {
+				//logger.Error(err.Error())
+				os.Exit(1)
+			}
+		},
+	}
+)
 
 func init() {
 	rootCmd.AddCommand(downloadCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// downloadCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// downloadCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	downloadCmd.Flags().StringVarP(&downloadDecryptKey, "decrypt_key", "k", "", "decryption key (required)")
+	_ = downloadCmd.MarkFlagRequired("decrypt_key")
+	downloadCmd.Flags().StringVarP(&downloadOutputDir, "output_dir", "o", "./download", `output directory`)
 }

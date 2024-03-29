@@ -18,7 +18,7 @@ const (
 )
 
 func newTestCtrl() *controller.Controller {
-	config := controller.NewConfig("../../config.yaml")
+	config, _ := controller.NewConfigFromFile("../../config.yaml")
 	s3Client := ossclient.NewClient(config.Endpoint, config.AccessKey, config.SecretKey)
 	fileHandler := filehandler.NewFileHandler()
 

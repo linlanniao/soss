@@ -76,20 +76,30 @@ func (c *client) List(bucket string, prefix string) (objs []*internal.S3Object, 
 	if err != nil {
 		return nil, err
 	}
-	lsRes, err := b.ListObjects(oss.Prefix(prefix))
-	if err != nil {
-		return nil, err
-	}
 
-	objs = make([]*internal.S3Object, len(lsRes.Objects))
-	for i, obj := range lsRes.Objects {
-		objs[i] = &internal.S3Object{
-			Key:  obj.Key,
-			Type: obj.Type,
-			Size: obj.Size,
-			ETag: obj.ETag,
+	objs = make([]*internal.S3Object, 0)
+
+	continuationToken := oss.ContinuationToken("")
+	for {
+		result, err := b.ListObjectsV2(oss.Prefix(prefix), oss.MaxKeys(50), continuationToken)
+		if err != nil {
+			return nil, err
+		}
+		continuationToken = oss.ContinuationToken(result.NextContinuationToken)
+
+		for _, obj := range result.Objects {
+			objs = append(objs, &internal.S3Object{
+				Key:  obj.Key,
+				Type: obj.Type,
+				Size: obj.Size,
+				ETag: obj.ETag,
+			})
+		}
+		if !result.IsTruncated {
+			break
 		}
 	}
+
 	return objs, nil
 }
 
