@@ -6,6 +6,9 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
+env:
+  - VERSION_PACKAGE=github.com/linlanniao/soss/pkg/version
+
 version: 1
 
 before:
@@ -22,6 +25,14 @@ builds:
       - linux
       - windows
       - darwin
+  - ldflags:
+    - >-
+      -s -w 
+      -X {{.Env.VERSION_PACKAGE}}.Version={{ .Version }}
+      -X {{.Env.VERSION_PACKAGE}}.Revision={{ .FullCommit }}
+      -X {{.Env.VERSION_PACKAGE}}.Branch={{ .Branch }}
+      -X {{.Env.VERSION_PACKAGE}}.BuildUser=github-action
+      -X {{.Env.VERSION_PACKAGE}}.BuildDate={{ .Date }}
 
 archives:
   - format: tar.gz
