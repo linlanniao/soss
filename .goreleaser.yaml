@@ -23,14 +23,14 @@ builds:
       - linux
       - windows
       - darwin
-  - ldflags:
-    - >-
-      -s -w 
-      -X {{.Env.VERSION_PACKAGE}}.Version={{ .Version }}
-      -X {{.Env.VERSION_PACKAGE}}.Revision={{ .FullCommit }}
-      -X {{.Env.VERSION_PACKAGE}}.Branch={{ .Branch }}
-      -X {{.Env.VERSION_PACKAGE}}.BuildUser=github-action
-      -X {{.Env.VERSION_PACKAGE}}.BuildDate={{ .Date }}
+    ldflags:
+      - >-
+        -s -w 
+        -X {{.Env.VERSION_PACKAGE}}.Version={{ .Version }}
+        -X {{.Env.VERSION_PACKAGE}}.Revision={{ .FullCommit }}
+        -X {{.Env.VERSION_PACKAGE}}.Branch={{ .Branch }}
+        -X {{.Env.VERSION_PACKAGE}}.BuildUser=github-action
+        -X {{.Env.VERSION_PACKAGE}}.BuildDate={{ .Date }}
 
 archives:
   - format: tar.gz
