@@ -6,6 +6,7 @@ import (
 
 	"github.com/linlanniao/soss/internal"
 	"github.com/linlanniao/soss/pkg/cipher"
+	"github.com/linlanniao/soss/pkg/compressor"
 )
 
 type fileHandler struct {
@@ -106,4 +107,25 @@ func (f *fileHandler) SearchFiles(path string) (files []string, err error) {
 		return nil, err
 	}
 	return files, nil
+}
+
+func (f *fileHandler) Compress(in *internal.File) (err error) {
+	compressed, err := compressor.CompressS2Bytes(in.Content)
+	if err != nil {
+		return err
+	}
+
+	in.Content = compressed
+	in.Compressed = true
+	return nil
+}
+
+func (f *fileHandler) Decompress(in *internal.File) (err error) {
+	raw, err := compressor.DecompressS2Bytes(in.Content)
+	if err != nil {
+		return err
+	}
+	in.Content = raw
+	in.Compressed = false
+	return nil
 }

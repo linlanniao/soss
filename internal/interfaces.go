@@ -28,6 +28,12 @@ type IContentCipher interface {
 	Encrypt(in *File, encryptKey string) (err error)
 	Decrypt(in *File, decryptKey string) (err error)
 }
+
+type IContentCompressor interface {
+	Compress(in *File) (err error)
+	Decompress(in *File) (err error)
+}
+
 type IFileReadWriter interface {
 	Read(path string) (*File, error)
 	Write(file *File) error
@@ -41,4 +47,5 @@ type IFileHandler interface {
 	IContentCipher
 	IFileReadWriter
 	IFileScanner
+	IContentCompressor
 }

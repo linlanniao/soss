@@ -175,8 +175,9 @@ func (c *client) Download(obj *internal.S3Object, outputDir string) (file *inter
 	//absPath, _ := filepath.Abs(filepath.Join(outputDir, obj.Key))
 
 	return &internal.File{
-		Path:      outputPath,
-		Content:   content,
-		Encrypted: true, // 默认已加密
+		Path:       outputPath,
+		Content:    content,
+		Encrypted:  true, // encrypted by default
+		Compressed: true, // compressed by default
 	}, nil
 }

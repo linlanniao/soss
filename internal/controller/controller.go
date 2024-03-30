@@ -127,9 +127,15 @@ func (c *Controller) Upload(opts UploadOptions) error {
 			return err
 		}
 
+		// compress file content
+		if err := c.fileHandler.Compress(file); err != nil {
+			c.logger.Error("compress file failed", "err", err.Error())
+			return err
+		}
+
 		// encrypt file content
 		if err := c.fileHandler.Encrypt(file, opts.EncryptKey); err != nil {
-			c.logger.Error("upload failed", "err", err.Error())
+			c.logger.Error("encrypt file failed", "err", err.Error())
 			return err
 		}
 
@@ -242,6 +248,12 @@ func (c *Controller) Download(opts DownloadOptions) error {
 		// decrypt file content
 		if err := c.fileHandler.Decrypt(file, opts.DecryptKey); err != nil {
 			c.logger.Error("decrypt file failed", "err", err.Error())
+			return err
+		}
+
+		// decompress file content
+		if err := c.fileHandler.Decompress(file); err != nil {
+			c.logger.Error("decompress file failed", "key", s3key, "err", err.Error())
 			return err
 		}
 

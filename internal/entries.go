@@ -1,9 +1,10 @@
 package internal
 
 type File struct {
-	Path      string // absolute path
-	Content   []byte // content
-	Encrypted bool   // if true, content is encrypted
+	Path       string // absolute path
+	Content    []byte // content
+	Encrypted  bool   // if true, content is encrypted
+	Compressed bool   // if true, content is compressed
 }
 
 type S3Object struct {
