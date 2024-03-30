@@ -6,9 +6,6 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
-env:
-  - VERSION_PACKAGE=github.com/linlanniao/soss/pkg/version
-
 version: 1
 
 before:
@@ -21,6 +18,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+      - VERSION_PACKAGE=github.com/linlanniao/soss/pkg/version
     goos:
       - linux
       - windows
