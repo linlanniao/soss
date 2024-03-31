@@ -13,19 +13,26 @@ var (
 	uploadEncryptKey string
 	uploadPrefix     string
 	uploadCmd        = &cobra.Command{
-		Use:   "upload files [files ...]",
-		Short: "Encrypt and upload files to s3service",
+		Use:     "upload files [files ...]",
+		Short:   "Encrypt and upload files to s3service",
+		Aliases: []string{"up", "u"},
 		Run: func(cmd *cobra.Command, paths []string) {
+			cType := controller.S3ClientType(s3ClientType)
+			if err := cType.Validate(); err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+
 			opts := controller.UploadOptions{
-				Endpoint:   endpoint,
-				Bucket:     bucket,
-				Prefix:     uploadPrefix,
-				EncryptKey: uploadEncryptKey,
-				Paths:      utils.RemoveDuplicates(paths),
+				S3ClientType: cType,
+				Endpoint:     endpoint,
+				Bucket:       bucket,
+				Prefix:       uploadPrefix,
+				EncryptKey:   uploadEncryptKey,
+				Paths:        utils.RemoveDuplicates(paths),
 			}
 
 			if err := ctrl.Upload(opts); err != nil {
-				//logger.Error(err.Error())
 				os.Exit(1)
 			}
 		},

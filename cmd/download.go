@@ -14,15 +14,23 @@ var (
 
 	// downloadCmd represents the download command
 	downloadCmd = &cobra.Command{
-		Use:   "download files [files ...]",
-		Short: "Download files from s3Service and decrypt it",
+		Use:     "download files [files ...]",
+		Short:   "Download files from s3Service and decrypt it",
+		Aliases: []string{"down", "d"},
 		Run: func(cmd *cobra.Command, keys []string) {
+			cType := controller.S3ClientType(s3ClientType)
+			if err := cType.Validate(); err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+
 			opts := controller.DownloadOptions{
-				Endpoint:   endpoint,
-				Bucket:     bucket,
-				OutputDir:  downloadOutputDir,
-				DecryptKey: downloadDecryptKey,
-				S3keys:     utils.RemoveDuplicates(keys),
+				S3ClientType: cType,
+				Endpoint:     endpoint,
+				Bucket:       bucket,
+				OutputDir:    downloadOutputDir,
+				DecryptKey:   downloadDecryptKey,
+				S3keys:       utils.RemoveDuplicates(keys),
 			}
 
 			if err := ctrl.Download(opts); err != nil {

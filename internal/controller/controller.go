@@ -15,9 +15,10 @@ import (
 )
 
 type Controller struct {
-	s3Client    internal.IS3Client
+	clients     S3Clients
 	fileHandler internal.IFileHandler
-	config      *Config
+	endpoint    string
+	bucket      string
 	logger      *slog.Logger
 }
 
@@ -47,8 +48,64 @@ func WithDefaultLogger() Option {
 	}
 }
 
-func NewController(config *Config, client internal.IS3Client, fileHandler internal.IFileHandler, opts ...Option) *Controller {
-	c := &Controller{s3Client: client, fileHandler: fileHandler, config: config}
+func WithEndpoint(endPoint string) Option {
+	return func(c *Controller) {
+		c.endpoint = endPoint
+	}
+}
+
+func WithBucket(bucket string) Option {
+	return func(c *Controller) {
+		c.bucket = bucket
+	}
+}
+
+func WithS3Client(key S3ClientType, client internal.IS3Client) Option {
+	return func(c *Controller) {
+		if len(c.clients) == 0 {
+			c.clients = make(S3Clients)
+		}
+		c.clients[key] = client
+	}
+}
+func WithFileHandler(handler internal.IFileHandler) Option {
+	return func(c *Controller) {
+		c.fileHandler = handler
+	}
+}
+
+type S3ClientType string
+
+const (
+	S3ClientTypeOSS S3ClientType = "oss"
+)
+
+func (t S3ClientType) Validate() error {
+	switch t {
+	case S3ClientTypeOSS:
+		return nil
+	default:
+		return errors.New("invalid client type")
+	}
+}
+
+type S3Clients map[S3ClientType]internal.IS3Client
+
+func (c *Controller) getClient(cType S3ClientType) (internal.IS3Client, error) {
+	clients := c.clients
+	if len(clients) == 0 {
+		return nil, errors.New("no s3 clients configured")
+	}
+
+	client, ok := clients[cType]
+	if !ok {
+		return nil, fmt.Errorf("no client with type %s", cType)
+	}
+	return client, nil
+}
+
+func NewController(opts ...Option) *Controller {
+	c := &Controller{}
 
 	for _, opt := range opts {
 		opt(c)
@@ -58,19 +115,38 @@ func NewController(config *Config, client internal.IS3Client, fileHandler intern
 		WithDefaultLogger()(c)
 	}
 
+	if c.fileHandler == nil {
+		panic("fileHandler is nil")
+	}
+	if len(c.clients) == 0 {
+		panic("clients is empty")
+	}
+
 	return c
 }
 
 type ListOptions struct {
-	Bucket string
-	Prefix string
+	S3ClientType S3ClientType
+	Endpoint     string
+	Bucket       string
+	Prefix       string
 }
 
 func (c *Controller) List(opts ListOptions) error {
-	if opts.Bucket == "" {
-		opts.Bucket = c.config.Bucket
+
+	if opts.Endpoint != "" {
+		c.endpoint = opts.Endpoint
 	}
-	objs, err := c.s3Client.List(opts.Bucket, opts.Prefix)
+	if opts.Bucket != "" {
+		c.bucket = opts.Bucket
+	}
+
+	client, err := c.getClient(opts.S3ClientType)
+	if err != nil {
+		return err
+	}
+
+	objs, err := client.List(c.endpoint, c.bucket, opts.Prefix)
 
 	if err != nil {
 		c.logger.Error(err.Error())
@@ -78,18 +154,9 @@ func (c *Controller) List(opts ListOptions) error {
 	}
 
 	for _, obj := range objs {
-		//c.logger.Info(obj.Key)
 		fmt.Println(obj.Key)
 	}
 	return nil
-}
-
-type UploadOptions struct {
-	Endpoint   string
-	Bucket     string
-	Prefix     string
-	EncryptKey string
-	Paths      []string
 }
 
 func trimDirectory(path, file string) string {
@@ -114,7 +181,7 @@ func trimDirectory(path, file string) string {
 	return trimmedPath
 }
 
-func (c *Controller) uploadSingleFile(bucket, prefix, path, encryptKey string) error {
+func (c *Controller) uploadSingleFile(endpoint, bucket, prefix, path, encryptKey string, client internal.IS3Client) error {
 	file, err := c.fileHandler.Read(path)
 	if err != nil {
 		c.logger.Error("upload failed", "err", err.Error())
@@ -133,7 +200,7 @@ func (c *Controller) uploadSingleFile(bucket, prefix, path, encryptKey string) e
 		return err
 	}
 
-	obj, err := c.s3Client.Upload(bucket, prefix, file)
+	obj, err := client.Upload(endpoint, bucket, prefix, file)
 	if err != nil {
 		c.logger.Error("upload failed", "err", err.Error())
 		return err
@@ -156,7 +223,8 @@ const (
 	downloadParallelism = 10
 )
 
-func (c *Controller) UploadDirectoryOrFile(bucket, prefix, path, encryptKey string) error {
+func (c *Controller) UploadDirectoryOrFile(
+	endpoint, bucket, prefix, path, encryptKey string, client internal.IS3Client) error {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -188,7 +256,7 @@ func (c *Controller) UploadDirectoryOrFile(bucket, prefix, path, encryptKey stri
 				}()
 
 				subPrefix := filepath.Join(prefix, filepath.Dir(trimDirectory(path, file)))
-				if err := c.uploadSingleFile(bucket, subPrefix, file, encryptKey); err != nil {
+				if err := c.uploadSingleFile(endpoint, bucket, subPrefix, file, encryptKey, client); err != nil {
 					c.logger.Error("error uploading file", "file", file, "error", err.Error())
 				}
 			}(file)
@@ -196,7 +264,7 @@ func (c *Controller) UploadDirectoryOrFile(bucket, prefix, path, encryptKey stri
 
 		wg.Wait()
 	} else {
-		if err := c.uploadSingleFile(bucket, prefix, path, encryptKey); err != nil {
+		if err := c.uploadSingleFile(endpoint, bucket, prefix, path, encryptKey, client); err != nil {
 			return err
 		}
 	}
@@ -204,12 +272,26 @@ func (c *Controller) UploadDirectoryOrFile(bucket, prefix, path, encryptKey stri
 	return nil
 }
 
+type UploadOptions struct {
+	S3ClientType S3ClientType
+	Endpoint     string
+	Bucket       string
+	Prefix       string
+	EncryptKey   string
+	Paths        []string
+}
+
 func (c *Controller) Upload(opts UploadOptions) error {
-	if opts.Endpoint == "" {
-		opts.Endpoint = c.config.Endpoint
+	if opts.Endpoint != "" {
+		c.endpoint = opts.Endpoint
 	}
-	if opts.Bucket == "" {
-		opts.Bucket = c.config.Bucket
+	if opts.Bucket != "" {
+		c.bucket = opts.Bucket
+	}
+
+	client, err := c.getClient(opts.S3ClientType)
+	if err != nil {
+		return err
 	}
 
 	if len(opts.Paths) == 0 {
@@ -218,24 +300,8 @@ func (c *Controller) Upload(opts UploadOptions) error {
 		return err
 	}
 
-	if opts.Endpoint != "" && opts.Endpoint != c.config.Endpoint {
-		if err := c.s3Client.SetEndpoint(opts.Endpoint); err != nil {
-			c.logger.Error("upload failed", "err", err.Error())
-			return err
-		}
-		c.config.Endpoint = opts.Endpoint
-	}
-
-	if opts.Bucket != "" && opts.Bucket != c.config.Bucket {
-		if err := c.s3Client.SetBucket(opts.Bucket); err != nil {
-			c.logger.Error("upload failed", "err", err.Error())
-			return err
-		}
-		c.config.Bucket = opts.Bucket
-	}
-
 	for _, path := range opts.Paths {
-		if err := c.UploadDirectoryOrFile(opts.Bucket, opts.Prefix, path, opts.EncryptKey); err != nil {
+		if err := c.UploadDirectoryOrFile(c.endpoint, c.bucket, opts.Prefix, path, opts.EncryptKey, client); err != nil {
 			c.logger.Error("upload failed", "err", err.Error())
 			return err
 		}
@@ -244,19 +310,13 @@ func (c *Controller) Upload(opts UploadOptions) error {
 	return nil
 }
 
-type DownloadOptions struct {
-	Endpoint   string
-	Bucket     string
-	OutputDir  string
-	DecryptKey string
-	S3keys     []string
-}
-
-func (c *Controller) downloadSingleFile(bucket, s3key, outputDir, decryptKey string) error {
-	file, err := c.s3Client.Download(
+func (c *Controller) downloadSingleFile(
+	endpoint, bucket, s3key, outputDir, decryptKey string, client internal.IS3Client) error {
+	file, err := client.Download(
 		&internal.S3Object{
-			Bucket: bucket,
-			Key:    s3key,
+			Endpoint: endpoint,
+			Bucket:   bucket,
+			Key:      s3key,
 		},
 		outputDir,
 	)
@@ -294,8 +354,9 @@ func (c *Controller) downloadSingleFile(bucket, s3key, outputDir, decryptKey str
 	return nil
 }
 
-func (c *Controller) downloadDirectoryOrFile(bucket, s3key, outputDir, decryptKey string) error {
-	objs, err := c.s3Client.List(bucket, s3key)
+func (c *Controller) downloadDirectoryOrFile(
+	endpoint, bucket, s3key, outputDir, decryptKey string, client internal.IS3Client) error {
+	objs, err := client.List(endpoint, bucket, s3key)
 	if err != nil {
 		c.logger.Error("download directory or file failed", "key", s3key, "err", err.Error())
 		return err
@@ -316,7 +377,7 @@ func (c *Controller) downloadDirectoryOrFile(bucket, s3key, outputDir, decryptKe
 				<-limiter // Release a concurrent signal
 				wg.Done()
 			}()
-			if err := c.downloadSingleFile(bucket, obj.Key, outputDir, decryptKey); err != nil {
+			if err := c.downloadSingleFile(endpoint, bucket, obj.Key, outputDir, decryptKey, client); err != nil {
 				c.logger.Error("download directory or file failed", "key", obj.Key, "err", err.Error())
 			}
 		}(obj)
@@ -325,12 +386,26 @@ func (c *Controller) downloadDirectoryOrFile(bucket, s3key, outputDir, decryptKe
 	return nil
 }
 
+type DownloadOptions struct {
+	S3ClientType S3ClientType
+	Endpoint     string
+	Bucket       string
+	OutputDir    string
+	DecryptKey   string
+	S3keys       []string
+}
+
 func (c *Controller) Download(opts DownloadOptions) error {
-	if opts.Endpoint == "" {
-		opts.Endpoint = c.config.Endpoint
+	if opts.Endpoint != "" {
+		c.endpoint = opts.Endpoint
 	}
-	if opts.Bucket == "" {
-		opts.Bucket = c.config.Bucket
+	if opts.Bucket != "" {
+		c.bucket = opts.Bucket
+	}
+
+	client, err := c.getClient(opts.S3ClientType)
+	if err != nil {
+		return err
 	}
 
 	if len(opts.S3keys) == 0 {
@@ -339,24 +414,8 @@ func (c *Controller) Download(opts DownloadOptions) error {
 		return err
 	}
 
-	if opts.Endpoint != "" && opts.Endpoint != c.config.Endpoint {
-		if err := c.s3Client.SetEndpoint(opts.Endpoint); err != nil {
-			c.logger.Error("download failed", "err", err.Error())
-			return err
-		}
-		c.config.Endpoint = opts.Endpoint
-	}
-
-	if opts.Bucket != "" && opts.Bucket != c.config.Bucket {
-		if err := c.s3Client.SetBucket(opts.Bucket); err != nil {
-			c.logger.Error("download failed", "err", err.Error())
-			return err
-		}
-		c.config.Bucket = opts.Bucket
-	}
-
 	for _, s3key := range opts.S3keys {
-		if err := c.downloadDirectoryOrFile(opts.Bucket, s3key, opts.OutputDir, opts.DecryptKey); err != nil {
+		if err := c.downloadDirectoryOrFile(c.endpoint, c.bucket, s3key, opts.OutputDir, opts.DecryptKey, client); err != nil {
 			return err
 		}
 	}

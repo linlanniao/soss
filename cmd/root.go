@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -18,15 +15,6 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "soss",
 	Short: "SOSS: Secure Object Storage Service",
-	//	Long: `A longer description that spans multiple lines and likely contains
-	//examples and usage of using your application. For example:
-	//
-	//Cobra is a CLI library for Go that empowers applications.
-	//This application is a tool to generate the needed files
-	//to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -39,30 +27,42 @@ func Execute() {
 }
 
 var (
-	config   *controller.Config
-	endpoint string
-	bucket   string
-	ctrl     *controller.Controller
-	logger   *slog.Logger
+	config       *controller.Config
+	endpoint     string
+	bucket       string
+	ctrl         *controller.Controller
+	logger       *slog.Logger
+	s3ClientType string
 )
+
+const s3ClientTypeDefault = "oss"
 
 func init() {
 	initLogger()
 	initConfig()
 	initController()
 
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", config.Endpoint, "endpoint")
 	rootCmd.PersistentFlags().StringVarP(&bucket, "bucket", "b", config.Bucket, "bucket")
+	if config.ClientType == "" {
+		config.ClientType = s3ClientTypeDefault
+	}
+	rootCmd.PersistentFlags().StringVarP(&s3ClientType, "s3_type", "s", config.ClientType, "s3 service type")
 }
 
 func initConfig() {
 	var err error
-	config, err = controller.TryGetConfig()
+	config, err = controller.NewConfig()
 	if err != nil {
 		logger.Error(
-			"failed to load the config file", "err", err.Error())
+			"failed to init config", "err", err.Error())
 		os.Exit(1)
+	}
+
+	// set default clientType
+	if config.ClientType == "" {
+		config.ClientType = s3ClientType
 	}
 }
 
@@ -71,7 +71,13 @@ func initLogger() {
 }
 
 func initController() {
-	s3Client := ossclient.NewClient(config.Endpoint, config.AccessKey, config.SecretKey)
+	ossClient := ossclient.NewClient(config.Endpoint, config.AccessKey, config.SecretKey)
 	fileHandler := filehandler.NewFileHandler()
-	ctrl = controller.NewController(config, s3Client, fileHandler, controller.WithLogger(logger))
+	ctrl = controller.NewController(
+		controller.WithBucket(config.Bucket),
+		controller.WithEndpoint(config.Endpoint),
+		controller.WithS3Client(controller.S3ClientTypeOSS, ossClient),
+		controller.WithFileHandler(fileHandler),
+		controller.WithLogger(logger),
+	)
 }

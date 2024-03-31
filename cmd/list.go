@@ -9,16 +9,24 @@ import (
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all objects of s3Service",
+	Use:     "list",
+	Short:   "List all objects of s3Service",
+	Aliases: []string{"ls", "l"},
 	Run: func(cmd *cobra.Command, _ []string) {
+		cType := controller.S3ClientType(s3ClientType)
+		if err := cType.Validate(); err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
+
 		opts := controller.ListOptions{
-			Bucket: bucket,
-			Prefix: listPrefix,
+			S3ClientType: cType,
+			Endpoint:     endpoint,
+			Bucket:       bucket,
+			Prefix:       listPrefix,
 		}
 
 		if err := ctrl.List(opts); err != nil {
-			logger.Error(err.Error())
 			os.Exit(1)
 		}
 	},

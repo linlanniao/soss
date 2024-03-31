@@ -13,22 +13,34 @@ import (
 )
 
 const (
+	endpoint  = "https://oss-cn-guangzhou.aliyuncs.com"
+	bucket    = "ppops-bucket"
 	prefix    = "tester/"
 	secretKey = "p@ssW0rd"
 )
 
 func newTestCtrl() *controller.Controller {
-	config, _ := controller.NewConfigFromFile("../../config.yaml")
-	s3Client := ossclient.NewClient(config.Endpoint, config.AccessKey, config.SecretKey)
+	config, err := controller.NewConfig()
+	if err != nil {
+		panic(err)
+	}
+	ossClient := ossclient.NewClient(config.Endpoint, config.AccessKey, config.SecretKey)
 	fileHandler := filehandler.NewFileHandler()
-
-	c := controller.NewController(config, s3Client, fileHandler, controller.WithDefaultLogger())
+	c := controller.NewController(
+		controller.WithBucket(bucket),
+		controller.WithEndpoint(endpoint),
+		controller.WithS3Client(controller.S3ClientTypeOSS, ossClient),
+		controller.WithFileHandler(fileHandler),
+		controller.WithDefaultLogger(),
+	)
 	return c
 }
 
 func TestController_List(t *testing.T) {
 	c := newTestCtrl()
-	err := c.List(controller.ListOptions{})
+	err := c.List(controller.ListOptions{
+		S3ClientType: controller.S3ClientTypeOSS,
+	})
 	assert.NoError(t, err)
 }
 
@@ -37,9 +49,10 @@ func TestController_UploadDir(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 	p := filepath.Join(homeDir, "Downloads/tester")
 	err := c.Upload(controller.UploadOptions{
-		Prefix:     "tester3",
-		EncryptKey: secretKey,
-		Paths:      []string{p},
+		S3ClientType: controller.S3ClientTypeOSS,
+		Prefix:       "tester3",
+		EncryptKey:   secretKey,
+		Paths:        []string{p},
 	})
 	assert.NoError(t, err)
 }
@@ -48,9 +61,10 @@ func TestController_UploadSingleFile(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 	p := filepath.Join(homeDir, "Downloads/README.md")
 	err := c.Upload(controller.UploadOptions{
-		Prefix:     "tester3",
-		EncryptKey: secretKey,
-		Paths:      []string{p},
+		S3ClientType: controller.S3ClientTypeOSS,
+		Prefix:       "tester3",
+		EncryptKey:   secretKey,
+		Paths:        []string{p},
 	})
 	assert.NoError(t, err)
 }
@@ -58,12 +72,13 @@ func TestController_UploadSingleFile(t *testing.T) {
 func TestController_Download(t *testing.T) {
 	c := newTestCtrl()
 	err := c.Download(controller.DownloadOptions{
-		OutputDir:  "../../tmpdir",
-		DecryptKey: secretKey,
-		S3keys:     []string{"tester3"},
+		S3ClientType: controller.S3ClientTypeOSS,
+		OutputDir:    "../../tmpdir",
+		DecryptKey:   secretKey,
+		S3keys:       []string{"tester3"},
 	})
 	assert.NoError(t, err)
-	os.RemoveAll("../../tmpdir")
+	_ = os.RemoveAll("../../tmpdir")
 }
 
 func createDirectoriesAndFile(filePath, content string) error {
@@ -117,16 +132,18 @@ func TestController_UploadDownload(t *testing.T) {
 
 	c := newTestCtrl()
 	err := c.Upload(controller.UploadOptions{
-		Prefix:     prefix,
-		EncryptKey: secretKey,
-		Paths:      []string{uploadDir},
+		S3ClientType: controller.S3ClientTypeOSS,
+		Prefix:       prefix,
+		EncryptKey:   secretKey,
+		Paths:        []string{uploadDir},
 	})
 	assert.NoError(t, err)
 
 	err = c.Download(controller.DownloadOptions{
-		OutputDir:  downloadDir,
-		DecryptKey: secretKey,
-		S3keys:     []string{prefix},
+		S3ClientType: controller.S3ClientTypeOSS,
+		OutputDir:    downloadDir,
+		DecryptKey:   secretKey,
+		S3keys:       []string{prefix},
 	})
 
 	for _, cc := range cases {

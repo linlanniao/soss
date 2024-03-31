@@ -5,23 +5,23 @@ type IDownloader interface {
 }
 
 type IUploader interface {
-	Upload(bucket string, prefix string, file *File) (obj *S3Object, err error)
+	Upload(endpoint, bucket, prefix string, file *File) (obj *S3Object, err error)
 }
 
 type ILister interface {
-	List(bucket string, prefix string) (objs []*S3Object, err error)
+	List(endpoint, bucket string, prefix string) (objs []*S3Object, err error)
 }
 
-type IS3ClientConfigurator interface {
-	SetEndpoint(endpoint string) error
-	SetBucket(bucket string) error
-}
+//type IS3ClientConfigurator interface {
+//	SetEndpoint(endpoint string) error
+//	SetBucket(bucket string) error
+//}
 
 type IS3Client interface {
 	ILister
 	IUploader
 	IDownloader
-	IS3ClientConfigurator
+	//IS3ClientConfigurator
 }
 
 type IContentCipher interface {

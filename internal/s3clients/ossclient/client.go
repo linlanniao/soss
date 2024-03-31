@@ -12,9 +12,9 @@ import (
 )
 
 type client struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
+	endpoint  string
+	accessKey string
+	secretKey string
 	_cli      *oss.Client
 	_bucket   *oss.Bucket
 }
@@ -22,7 +22,7 @@ type client struct {
 var _ internal.IS3Client = (*client)(nil)
 
 func NewClient(endpoint, accessKey, secretKey string) internal.IS3Client {
-	c := &client{Endpoint: endpoint, AccessKey: accessKey, SecretKey: secretKey}
+	c := &client{endpoint: endpoint, accessKey: accessKey, secretKey: secretKey}
 
 	cli, err := oss.New(endpoint, accessKey, secretKey)
 	if err != nil {
@@ -33,18 +33,18 @@ func NewClient(endpoint, accessKey, secretKey string) internal.IS3Client {
 	return c
 }
 
-func (c *client) SetEndpoint(endpoint string) error {
+func (c *client) setEndpoint(endpoint string) error {
 
 	// same endpoint, do nothing
-	if endpoint == c.Endpoint {
+	if endpoint == c.endpoint {
 		return nil
 	}
 
 	// update endpoint
-	c.Endpoint = endpoint
+	c.endpoint = endpoint
 
 	// create new oss client
-	if cli, err := oss.New(endpoint, c.AccessKey, c.SecretKey); err != nil {
+	if cli, err := oss.New(endpoint, c.accessKey, c.secretKey); err != nil {
 		return err
 	} else {
 		c._cli = cli
@@ -52,7 +52,7 @@ func (c *client) SetEndpoint(endpoint string) error {
 	}
 }
 
-func (c *client) SetBucket(bucket string) error {
+func (c *client) setBucket(bucket string) error {
 	// update bucket
 	_, err := c.bucket(bucket)
 	return err
@@ -71,10 +71,20 @@ func (c *client) bucket(bucket string) (*oss.Bucket, error) {
 	return b, nil
 }
 
-func (c *client) List(bucket string, prefix string) (objs []*internal.S3Object, err error) {
+func (c *client) List(endpoint, bucket, prefix string) (objs []*internal.S3Object, err error) {
+	if err := c.setEndpoint(endpoint); err != nil {
+		return nil, err
+	}
 	b, err := c._cli.Bucket(bucket)
 	if err != nil {
 		return nil, err
+	}
+	if b.BucketName == "" {
+		return nil, errors.New("bucket cannot be empty")
+	}
+
+	if c.endpoint == "" {
+		return nil, errors.New("endpoint cannot be empty")
 	}
 
 	objs = make([]*internal.S3Object, 0)
@@ -103,14 +113,27 @@ func (c *client) List(bucket string, prefix string) (objs []*internal.S3Object, 
 	return objs, nil
 }
 
-func (c *client) Upload(bucket string, prefix string, file *internal.File) (obj *internal.S3Object, err error) {
+func (c *client) Upload(endpoint, bucket, prefix string, file *internal.File) (obj *internal.S3Object, err error) {
+	if err := c.setEndpoint(endpoint); err != nil {
+		return nil, err
+	}
+
 	if file == nil {
 		return nil, errors.New("file is nil")
 	}
 
-	b, err := c.bucket(bucket)
+	b, err := c._cli.Bucket(bucket)
+
 	if err != nil {
 		return nil, err
+	}
+
+	if b.BucketName == "" {
+		return nil, errors.New("bucket cannot be empty")
+	}
+
+	if c.endpoint == "" {
+		return nil, errors.New("endpoint cannot be empty")
 	}
 
 	fileName := filepath.Base(file.Path)
@@ -151,13 +174,30 @@ func (c *client) Download(obj *internal.S3Object, outputDir string) (file *inter
 		return nil, errors.New("obj is nil")
 	}
 
+	if obj.Endpoint == "" {
+		return nil, errors.New("endpoint cannot be empty")
+	}
+
 	if obj.Bucket == "" {
 		return nil, errors.New("bucket is empty")
 	}
 
+	if err := c.setEndpoint(obj.Endpoint); err != nil {
+		return nil, err
+	}
+
 	b, err := c.bucket(obj.Bucket)
+
 	if err != nil {
 		return nil, err
+	}
+
+	if b.BucketName == "" {
+		return nil, errors.New("bucket cannot be empty")
+	}
+
+	if c.endpoint == "" {
+		return nil, errors.New("endpoint cannot be empty")
 	}
 
 	reader, err := b.GetObject(obj.Key)

@@ -18,37 +18,63 @@ type Config struct {
 }
 
 const (
-	environmentKeyOssAk = "OSS_ACCESS_KEY_ID"
-	environmentKeyOssSk = "OSS_ACCESS_KEY_SECRET"
+	environmentKeyOssAk = "S3_ACCESS_KEY_ID"
+	environmentKeyOssSk = "S3_ACCESS_KEY_SECRET"
 )
 
-// NewConfigFromFile creates a new Config object from the given YAML file.
-// The file should contain the necessary configuration for the S3 client,
-// including the access key ID and secret access key, as well as the S3 bucket
-// name and endpoint.
-func NewConfigFromFile(configFile string) (*Config, error) {
-	b, err := os.ReadFile(configFile)
+func NewConfig() (*Config, error) {
+	c := &Config{}
+
+	// try to load ak / sk from environment
+	c.AccessKey = os.Getenv(environmentKeyOssAk)
+	c.SecretKey = os.Getenv(environmentKeyOssSk)
+
+	if c.AccessKey == "" || c.SecretKey == "" {
+		err := fmt.Errorf("environment key [%s] or [%s] is not set", environmentKeyOssSk, environmentKeyOssSk)
+		return nil, err
+	}
+
+	updateConfigFromFile := func(file string, configToUpdate *Config) (*Config, error) {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		fileCfg := Config{}
+		if err := yaml.Unmarshal(b, &fileCfg); err != nil {
+			return nil, err
+		}
+
+		configToUpdate.Bucket = fileCfg.Bucket
+		configToUpdate.Endpoint = fileCfg.Endpoint
+		configToUpdate.ClientType = fileCfg.ClientType
+
+		return configToUpdate, nil
+	}
+
+	// try to load config from./config.yaml
+	dir, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	config := Config{}
-	if err := yaml.Unmarshal(b, &config); err != nil {
-		return nil, err
-	}
-	switch config.ClientType {
-	case "oss":
-		config.AccessKey = os.Getenv(environmentKeyOssAk)
-		config.SecretKey = os.Getenv(environmentKeyOssSk)
-		if config.AccessKey == "" || config.SecretKey == "" {
-			err := fmt.Errorf("environment key [%s] or [%s] is not set", environmentKeyOssSk, environmentKeyOssSk)
-			return nil, err
+	if f := filepath.Join(dir, defaultConfigFileName); isFile(f) {
+		if updatedCfg, err := updateConfigFromFile(f, c); err == nil {
+			return updatedCfg, nil
 		}
-	default:
-		err := errors.New("unsupported s3Client type")
-		return nil, err
+
 	}
 
-	return &config, nil
+	// try to load config from $HOME/.soss/config.yaml
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	if f := filepath.Join(home, ".soss", defaultConfigFileName); isFile(f) {
+		if updatedCfg, err := updateConfigFromFile(f, c); err == nil {
+			return updatedCfg, nil
+		}
+	}
+
+	return c, nil
 }
 
 const (
@@ -63,28 +89,11 @@ func isFile(path string) bool {
 	return !info.IsDir()
 }
 
-// TryGetConfig attempts to load the S3 configuration from the default
-// locations, first from./config.yaml and then from $HOME/.soss/config.yaml.
-// If no configuration file is found, an error is returned.
-func TryGetConfig() (*Config, error) {
-	// 1. try to load config from./config.yaml
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, err
+func (c *Config) Validate() error {
+	switch c.ClientType {
+	case "oss":
+		return nil
+	default:
+		return errors.New("invalid client type")
 	}
-	if f := filepath.Join(dir, defaultConfigFileName); isFile(f) {
-		return NewConfigFromFile(f)
-	}
-
-	// 2. try to load config from $HOME/.soss/config.yaml
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	if f := filepath.Join(home, ".soss", defaultConfigFileName); isFile(f) {
-		return NewConfigFromFile(f)
-	}
-
-	// 3. return an error
-	return nil, errors.New("no config file found, please check ./config.yaml or $HOME/.soss/config.yaml")
 }

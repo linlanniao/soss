@@ -8,9 +8,10 @@ type File struct {
 }
 
 type S3Object struct {
-	Bucket string // Object bucket
-	Key    string // Object key
-	Type   string // Object type
-	Size   int64  // Object size
-	ETag   string // Object eTag
+	Endpoint string // endpoint
+	Bucket   string // Object bucket
+	Key      string // Object key
+	Type     string // Object type
+	Size     int64  // Object size
+	ETag     string // Object eTag
 }
