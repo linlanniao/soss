@@ -36,7 +36,7 @@ func deleteObject(client *client, objectName string) error {
 
 func TestClient_List(t *testing.T) {
 	client := newTestClient()
-	objs, err := client.List(testBucket, "p1")
+	objs, err := client.List(testBucket, "tester3")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, objs)
 	for _, obj := range objs {

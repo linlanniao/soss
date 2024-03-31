@@ -32,12 +32,25 @@ func TestController_List(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestController_Upload(t *testing.T) {
+func TestController_UploadDir(t *testing.T) {
 	c := newTestCtrl()
+	homeDir, _ := os.UserHomeDir()
+	p := filepath.Join(homeDir, "Downloads/tester")
 	err := c.Upload(controller.UploadOptions{
-		Prefix:     prefix,
+		Prefix:     "tester3",
 		EncryptKey: secretKey,
-		Paths:      []string{"../../README.md"},
+		Paths:      []string{p},
+	})
+	assert.NoError(t, err)
+}
+func TestController_UploadSingleFile(t *testing.T) {
+	c := newTestCtrl()
+	homeDir, _ := os.UserHomeDir()
+	p := filepath.Join(homeDir, "Downloads/README.md")
+	err := c.Upload(controller.UploadOptions{
+		Prefix:     "tester3",
+		EncryptKey: secretKey,
+		Paths:      []string{p},
 	})
 	assert.NoError(t, err)
 }
@@ -47,9 +60,10 @@ func TestController_Download(t *testing.T) {
 	err := c.Download(controller.DownloadOptions{
 		OutputDir:  "../../tmpdir",
 		DecryptKey: secretKey,
-		S3keys:     []string{prefix + "README.md"},
+		S3keys:     []string{"tester3"},
 	})
 	assert.NoError(t, err)
+	os.RemoveAll("../../tmpdir")
 }
 
 func createDirectoriesAndFile(filePath, content string) error {
@@ -109,14 +123,14 @@ func TestController_UploadDownload(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
+	err = c.Download(controller.DownloadOptions{
+		OutputDir:  downloadDir,
+		DecryptKey: secretKey,
+		S3keys:     []string{prefix},
+	})
+
 	for _, cc := range cases {
-		key := filepath.Join(prefix, uploadDir, cc.filePath)
-		err = c.Download(controller.DownloadOptions{
-			OutputDir:  downloadDir,
-			DecryptKey: secretKey,
-			S3keys:     []string{key},
-		})
-		assert.NoError(t, err)
+		key := filepath.Join(prefix, cc.filePath)
 
 		outputPath := filepath.Join(downloadDir, key)
 		content, err := os.ReadFile(outputPath)
