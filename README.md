@@ -3,6 +3,14 @@
 一个可以在把文件上传到s3存储, 上传之前加密文件内容，下载时自动解密的小工具。  
 目前适配了阿里云OSS, 后续再扩展.    
 
+## 参考
+**[参考高天大佬的 soss 工具](https://github.com/gaogaotiantian/soss)**
+此项目为soss的go版本, 逻辑作出了如下几点的修改:
+1. 将oss-sdk与controller逻辑分离, 后续可以方便的扩展更多的s3对象存储支持;
+2. 将原来的**加密**的逻辑, 改为**加密+压缩**, 在文件较大的情况下可以节省空间, *但可能会导致工具运行时候消耗更多内存;*
+3. 上传、下载改用了并行处理, 处理多个文件时候能提高性能
+
+
 ## 安装
 ### [Download the latest binary](https://github.com/linlanniao/soss/releases/latest)
 **wget**  
