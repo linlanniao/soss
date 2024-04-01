@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/linlanniao/soss/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,7 +57,7 @@ func NewConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if f := filepath.Join(dir, defaultConfigFileName); isFile(f) {
+	if f := filepath.Join(dir, defaultConfigFileName); utils.IsFile(f) {
 		if updatedCfg, err := updateConfigFromFile(f, c); err == nil {
 			return updatedCfg, nil
 		}
@@ -68,7 +69,7 @@ func NewConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if f := filepath.Join(home, ".soss", defaultConfigFileName); isFile(f) {
+	if f := filepath.Join(home, ".soss", defaultConfigFileName); utils.IsFile(f) {
 		if updatedCfg, err := updateConfigFromFile(f, c); err == nil {
 			return updatedCfg, nil
 		}
@@ -80,14 +81,6 @@ func NewConfig() (*Config, error) {
 const (
 	defaultConfigFileName = "config.yaml"
 )
-
-func isFile(path string) bool {
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
-}
 
 func (c *Config) Validate() error {
 	switch c.ClientType {

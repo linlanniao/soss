@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ type Controller struct {
 	endpoint    string
 	bucket      string
 	logger      *slog.Logger
+	isCompress  bool
 }
 
 type Option func(c *Controller)
@@ -57,6 +59,12 @@ func WithEndpoint(endPoint string) Option {
 func WithBucket(bucket string) Option {
 	return func(c *Controller) {
 		c.bucket = bucket
+	}
+}
+
+func WithCompression() Option {
+	return func(c *Controller) {
+		c.isCompress = true
 	}
 }
 
@@ -189,9 +197,11 @@ func (c *Controller) uploadSingleFile(endpoint, bucket, prefix, path, encryptKey
 	}
 
 	// compress file content
-	if err := c.fileHandler.Compress(file); err != nil {
-		c.logger.Error("compress file failed", "err", err.Error())
-		return err
+	if c.isCompress {
+		if err := c.fileHandler.Compress(file); err != nil {
+			c.logger.Error("compress file failed", "err", err.Error())
+			return err
+		}
 	}
 
 	// encrypt file content
@@ -243,7 +253,8 @@ func (c *Controller) UploadDirectoryOrFile(
 		}
 
 		var wg sync.WaitGroup
-		limiter := make(chan struct{}, uploadParallelism)
+		//limiter := make(chan struct{}, uploadParallelism)
+		limiter := make(chan struct{}, runtime.NumCPU()*2)
 
 		for _, file := range files {
 			wg.Add(1)
@@ -331,10 +342,12 @@ func (c *Controller) downloadSingleFile(
 		return err
 	}
 
-	// decompress file content
-	if err := c.fileHandler.Decompress(file); err != nil {
-		c.logger.Error("decompress file failed", "key", s3key, "err", err.Error())
-		return err
+	if c.isCompress {
+		// decompress file content
+		if err := c.fileHandler.Decompress(file); err != nil {
+			c.logger.Error("decompress file failed", "key", s3key, "err", err.Error())
+			return err
+		}
 	}
 
 	if err := c.fileHandler.Write(file); err != nil {
@@ -366,7 +379,8 @@ func (c *Controller) downloadDirectoryOrFile(
 		c.logger.Error("download directory or file failed", "key", s3key, "err", err.Error())
 	}
 	var wg sync.WaitGroup
-	limiter := make(chan struct{}, downloadParallelism)
+	//limiter := make(chan struct{}, downloadParallelism)
+	limiter := make(chan struct{}, runtime.NumCPU()*2)
 
 	for _, obj := range objs {
 		wg.Add(1)

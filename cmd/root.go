@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/linlanniao/soss/internal/controller"
 	"github.com/linlanniao/soss/internal/filehandler"
 	"github.com/linlanniao/soss/internal/s3clients/ossclient"
+	"github.com/linlanniao/soss/internal/secret"
 	"github.com/linlanniao/soss/pkg/log"
 	"github.com/spf13/cobra"
 )
@@ -27,12 +29,14 @@ func Execute() {
 }
 
 var (
-	config       *controller.Config
-	endpoint     string
-	bucket       string
-	ctrl         *controller.Controller
-	logger       *slog.Logger
-	s3ClientType string
+	config        *controller.Config
+	endpoint      string
+	bucket        string
+	ctrl          *controller.Controller
+	logger        *slog.Logger
+	s3ClientType  string
+	useSecretFile bool
+	secretKey     string
 )
 
 const s3ClientTypeDefault = "oss"
@@ -48,7 +52,10 @@ func init() {
 	if config.ClientType == "" {
 		config.ClientType = s3ClientTypeDefault
 	}
-	rootCmd.PersistentFlags().StringVarP(&s3ClientType, "s3_type", "s", config.ClientType, "s3 service type")
+	rootCmd.PersistentFlags().StringVarP(&s3ClientType, "client_type", "c", config.ClientType, "client type")
+
+	rootCmd.PersistentFlags().BoolVarP(&useSecretFile, "use_secret_file", "a", false, "using secret file to encryption")
+
 }
 
 func initConfig() {
@@ -79,5 +86,19 @@ func initController() {
 		controller.WithS3Client(controller.S3ClientTypeOSS, ossClient),
 		controller.WithFileHandler(fileHandler),
 		controller.WithLogger(logger),
+		controller.WithCompression(),
 	)
+}
+
+func initSecretKey() {
+	if !useSecretFile {
+		return
+	}
+	s, err := secret.Load()
+	if err != nil {
+		err := fmt.Errorf("error loading secret, error: %w", err)
+		logger.Error(err.Error())
+		panic(err.Error())
+	}
+	secretKey = s.Key()
 }

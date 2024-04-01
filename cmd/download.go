@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/linlanniao/soss/internal/controller"
@@ -24,12 +25,26 @@ var (
 				os.Exit(1)
 			}
 
+			initSecretKey()
+			var k string
+			if useSecretFile && len(secretKey) > 0 {
+				k = secretKey
+			} else {
+				if len(downloadDecryptKey) == 0 {
+					fmt.Println(useSecretFile)
+					fmt.Println(len(secretKey))
+					logger.Error("decrypt_key is required")
+					os.Exit(1)
+				}
+				k = downloadDecryptKey
+			}
+
 			opts := controller.DownloadOptions{
 				S3ClientType: cType,
 				Endpoint:     endpoint,
 				Bucket:       bucket,
 				OutputDir:    downloadOutputDir,
-				DecryptKey:   downloadDecryptKey,
+				DecryptKey:   k,
 				S3keys:       utils.RemoveDuplicates(keys),
 			}
 
@@ -43,7 +58,6 @@ var (
 
 func init() {
 	rootCmd.AddCommand(downloadCmd)
-	downloadCmd.Flags().StringVarP(&downloadDecryptKey, "decrypt_key", "k", "", "decryption key (required)")
-	_ = downloadCmd.MarkFlagRequired("decrypt_key")
+	downloadCmd.Flags().StringVarP(&downloadDecryptKey, "decrypt_key", "k", "", "decryption key")
 	downloadCmd.Flags().StringVarP(&downloadOutputDir, "output_dir", "o", "./download", `output directory`)
 }

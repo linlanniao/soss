@@ -23,12 +23,24 @@ var (
 				os.Exit(1)
 			}
 
+			initSecretKey()
+			var k string
+			if useSecretFile && len(secretKey) > 0 {
+				k = secretKey
+			} else {
+				if len(uploadEncryptKey) == 0 {
+					logger.Error("encrypt_key is required")
+					os.Exit(1)
+				}
+				k = uploadEncryptKey
+			}
+
 			opts := controller.UploadOptions{
 				S3ClientType: cType,
 				Endpoint:     endpoint,
 				Bucket:       bucket,
 				Prefix:       uploadPrefix,
-				EncryptKey:   uploadEncryptKey,
+				EncryptKey:   k,
 				Paths:        utils.RemoveDuplicates(paths),
 			}
 
@@ -42,6 +54,5 @@ var (
 func init() {
 	rootCmd.AddCommand(uploadCmd)
 	uploadCmd.Flags().StringVarP(&uploadEncryptKey, "encrypt_key", "k", "", "encryption key (required)")
-	_ = uploadCmd.MarkFlagRequired("encrypt_key")
 	uploadCmd.Flags().StringVarP(&uploadPrefix, "prefix", "p", "", `prefix path to add to the file key (default "")`)
 }
