@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	secretForce bool
+	secretReplace bool
 	// secretCmd represents the secret command
 	secretCmd = &cobra.Command{
 		Use:     "secret",
@@ -16,17 +16,31 @@ var (
 		Aliases: []string{"sec"},
 		Run: func(cmd *cobra.Command, _ []string) {
 			s := secret.GenerateSecret()
-			err := s.Save(secretForce)
+			var err error
+			var newerSec *secret.Secret
+			if secretReplace {
+				newerSec, err = s.Replace()
+			} else {
+				err = s.Save()
+			}
+
 			if err != nil {
 				logger.Error("error generating secret", "err", err.Error())
 				os.Exit(1)
 			}
-			logger.Info("secret generated", "filepath", s.Path())
+
+			if newerSec != nil && newerSec.Path() != s.Path() {
+				logger.Info("secret file has been replaced",
+					"newer", newerSec.Path(),
+					"backup", s.Path())
+			} else {
+				logger.Info("secret generated", "filepath", s.Path())
+			}
 		},
 	}
 )
 
 func init() {
 	rootCmd.AddCommand(secretCmd)
-	secretCmd.Flags().BoolVarP(&secretForce, "force", "f", false, "force overwrite secret file")
+	secretCmd.Flags().BoolVarP(&secretReplace, "replace", "r", false, "replace secret file")
 }
