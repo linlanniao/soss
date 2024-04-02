@@ -13,14 +13,8 @@
 
 ## 安装
 ### [Download the latest binary](https://github.com/linlanniao/soss/releases/latest)
-**wget**  
-使用 wget 下载预编译的二进制压缩文件     
-例子: `VERSION=v4.2.0` `BINARY=soss_Linux_x86_64`
 
-```
-wget https://github.com/linlanniao/soss/releases/download//${VERSION}/${BINARY}.tar.gz -O - |\
-  tar xz && mv ${BINARY} /usr/local/bin/soss
-```
+> 下载二进制文件, 解压缩并保存至`/usr/local/bin/soss`
 
 
 ## 准备工作
